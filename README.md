@@ -1,7 +1,7 @@
 cribtastic
 ==========
 
-A cryptographic crib maniplation tool
+A cryptographic crib manipulation tool
 
 Full description here:
 
