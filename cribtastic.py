@@ -357,7 +357,7 @@ lock_key= []
 lock_key_var= []
 for x in range(len(Key)):
 	lock_key_var.append(Tkinter.IntVar())
-	lock_key.append(Checkbutton(frame_key, variable= lock_key_var[x]))
+	lock_key.append(Checkbutton(frame_key, variable= lock_key_var[x], command=update_all))
 	lock_key[x].grid(padx= 0, pady= 0, row= 2, column= x + 1)
 	lock_key[x].deselect()
 
