@@ -42,6 +42,8 @@ class AutoScrollbar(Scrollbar):
         raise TclError, "cannot use place with this widget"
 
 def readable(data):
+	if not data:
+		return '_'
 	out= ''
 	for x in data:
 		if x >= ' ' and x <= '~':
@@ -74,44 +76,50 @@ def update_key(x):
 	text_key[x].delete(0,Tkinter.END)
 	text_key[x].insert(0, readable(Key[x]))
 	hex_key[x].delete(0,Tkinter.END)
-	hex_key[x].insert(0, '%02X' % ord(Key[x]))
+	if Key[x] == None:
+		hex_key[x].insert(0, '00')
+	else:
+		hex_key[x].insert(0, '%02X' % ord(Key[x]))
 	update_colour(x)
 
 def print_plaintexts():
 	print
 	print 'key:'
 	for x in range(len(Key)):
-		print '%02X' % ord(Key[x]),
+		if Key[x] == None:
+			print '__',
+		else:
+			print '%02X' % ord(Key[x]),
 	print
 	print
 	print 'plaintexts:'
 	for y in range(len(CipherText)):
 		out= ''
 		for x in range(len(CipherText[y])):
-			if ord(Key[x]):
-				out += readable(sxor(CipherText[y][x],Key[x]))
-			else:
+			if Key[x] == None:
 				out += '_'
+			else:
+				out += readable(sxor(CipherText[y][x],Key[x]))
 		print out
 
 # set background colour for all fields
 def update_colour(x):
-	if ord(Key[x]):
-		hex_key[x].config(bg="green")
-		text_key[x].config(bg="green")
-	else:
+	if Key[x] == None:
 		hex_key[x].config(bg="red")
 		text_key[x].config(bg="red")
+	else:
+		hex_key[x].config(bg="green")
+		text_key[x].config(bg="green")
 	for y in range(len(CipherText)):
 		try:
 			hex_ciph[y][x].config(bg="white")
-			if ord(Key[x]):
+			if Key[x] == None:
+				text_pt[y][x].config(bg="white")
+			else:
 				if lock_key_var[x].get():
 					text_pt[y][x].config(bg="lightblue")
 				else:
 					text_pt[y][x].config(bg="green")
-			else:
-				text_pt[y][x].config(bg="white")
 		except:
 			pass
 
@@ -122,14 +130,14 @@ def update_hex_cipher(x,y):
 def update_plaintext(x,y):
 	text_pt[x][y].delete(0,Tkinter.END)
 	# only display what we can decode
-	if Key[y] != '\0':
+	if Key[y] == None:
+		text_pt[x][y].insert(0, '_')
+	else:
 		text_pt[x][y].insert(0, readable(chr(ord(CipherText[x][y]) ^ ord(Key[y]))))
 		if lock_key_var[y].get():
 			text_pt[x][y].config(bg="lightblue")
 		else:
 			text_pt[x][y].config(bg="green")
-	else:
-		text_pt[x][y].insert(0, '_')
 
 def update_all():
 	for x in range(len(Key)):
@@ -219,7 +227,7 @@ for x in CipherText:
 if sys.argv[1] != '':
 	Key= sys.argv[1].decode('hex')
 else:
-	Key= ['\0' for x in range(maxlen)]
+	Key= [None for x in range(maxlen)]
 OriginalKey= Key
 
 widget_master= Tk()
@@ -315,7 +323,10 @@ hex_key= []
 for x in range(len(Key)):
 	hex_key.append(Entry(frame_key, width= 2))
 	hex_key[x].grid(padx= 0, pady= 1, row= 0, column= x + 1)
-	hex_key[x].insert(0, '%02X' % ord(Key[x]))
+	if Key[x] == None:
+		hex_key[x].insert(0, '00')
+	else:
+		hex_key[x].insert(0, '%02X' % ord(Key[x]))
 	def hex_key_update_handler(event, x=x):
 		return update_from_hex_key(x)
 	def highlight_handler(event, x=x, colour="yellow"):
@@ -325,10 +336,10 @@ for x in range(len(Key)):
 	hex_key[x].bind('<Return>', hex_key_update_handler)
 	hex_key[x].bind('<FocusIn>', highlight_handler)
 	hex_key[x].bind('<FocusOut>', unhighlight_handler)
-	if ord(Key[x]):
-		hex_key[x].config(bg="green")
-	else:
+	if Key[x] == None:
 		hex_key[x].config(bg="red")
+	else:
+		hex_key[x].config(bg="green")
 
 text_key_label=Label(frame_key, text= " ASCII      ")
 text_key_label.grid(padx= 0, pady= 1, row= 1, column= 0)
@@ -336,7 +347,10 @@ text_key= []
 for x in range(len(Key)):
 	text_key.append(Entry(frame_key, width= 2))
 	text_key[x].grid(padx= 0, pady= 1, row= 1, column= x + 1)
-	text_key[x].insert(0, readable(Key[x]))
+	if Key[x] == None:
+		text_key[x].insert(0, '_')
+	else:
+		text_key[x].insert(0, readable(Key[x]))
 	def text_key_update_handler(event, x=x):
 		return update_from_text_key(x)
 	def highlight_handler(event, x=x, colour="yellow"):
@@ -346,10 +360,10 @@ for x in range(len(Key)):
 	text_key[x].bind('<Return>', text_key_update_handler)
 	text_key[x].bind('<FocusIn>', highlight_handler)
 	text_key[x].bind('<FocusOut>', unhighlight_handler)
-	if ord(Key[x]):
-		text_key[x].config(bg="green")
-	else:
+	if Key[x] == None:
 		text_key[x].config(bg="red")
+	else:
+		text_key[x].config(bg="green")
 
 lock_key_label=Label(frame_key, text= " Lock       ")
 lock_key_label.grid(padx= 0, pady= 1, row= 2, column= 0)
