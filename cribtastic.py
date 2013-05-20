@@ -22,6 +22,7 @@ import sys
 import copy
 from Tkinter import *
 import Tkinter
+import getopt
 
 # colours
 # light grey = #d9d9d9
@@ -207,25 +208,83 @@ def otp_crack(candidates):
 		candidates= [candidates.pop()] + candidates
 
 	return newkey
-		
-### main
-# setup
-if len(sys.argv) < 3:
+
+def usage():
 	print
-	print 'usage: %s <KEY HEX> <CIPHERTEXT HEX> [ <CIPHERTEXT HEX> ... ]' % sys.argv[0]
+	print 'usage: %s [options] <KEY HEX> <CIPHERTEXT HEX> [ <CIPHERTEXT HEX> ... ]' % sys.argv[0]
+	print
+	print '  options:'
+	print
+	print '              -a --ascii= <FILE>            Read ASCII/BASE64 file'
+	print '              -b --binary= <FILE>           Read BINARY file'
+	print '              -h --help                     Show help text'
+	print '              -H --Hexfile= <FILE>          Read HEX file (newline delimited, or specify --length)'
+	print '              -l --length= <LENGTH>         Segment/Key length for file reads' 
 	print
 	exit()
-
+		
+### main
 # globals
 CipherText= []
-for x in sys.argv[2:]:
-	CipherText.append(x.decode('hex'))
+infile= None
 maxlen= 0
+
+try:
+	opts, args = getopt.getopt(sys.argv[1:], "ha:b:H:l:", ["help", "ascii=", "binary=", "Hexfile=", "length="])
+except getopt.GetoptError as err:
+	print str(err) # will print something like "option -a not recognized"
+	usage()
+	sys.exit(True)
+for o, a in opts:
+	if o in ("-a", "--ascii") or o in ("-b", "--binary") or o in ("-H", "--Hexfile"):
+		infile= open(a, 'rb')
+		filetype= o.replace('-','')[0]
+	elif o in ("-h", "--help"):
+		usage()
+		sys.exit()
+	elif o in ("-l", "--length"):
+		maxlen= int(a)
+	else:
+		assert False, "unhandled option"
+
+if infile:
+	while 42:
+		if filetype == 'a':
+			data= infile.read().decode('base64')
+			for x in range(len(data) / maxlen):
+				CipherText.append(data[x * maxlen:(x + 1) * maxlen])
+			break
+		if filetype == 'b':
+			data= infile.read()
+			for x in range(len(data) / maxlen):
+				CipherText.append(data[x * maxlen:(x + 1) * maxlen])
+			break
+		if filetype == 'H':
+			if maxlen:
+				data= infile.read().strip().decode('hex')
+				for x in range(len(data) / maxlen):
+					CipherText.append(data[x * maxlen:(x + 1) * maxlen])
+			else:
+				while 42:
+					data= infile.readline().strip()
+					if data == '':
+						break
+					CipherText.append(data.decode('hex'))
+			break
+
+if not args:
+	usage()
+
+for x in args[1:]:
+	CipherText.append(x.decode('hex'))
+
 for x in CipherText:
 	if len(x) > maxlen:
 		maxlen= len(x)
-if sys.argv[1] != '':
-	Key= sys.argv[1].decode('hex')
+
+# load key
+if args[0] != '':
+	Key= list(args[0].decode('hex'))
 else:
 	Key= [None for x in range(maxlen)]
 OriginalKey= Key
@@ -316,6 +375,19 @@ def highlight_column(event, col= None, colour= None):
 			except:
 				pass
 
+# set all includes to match calling entry
+def ciph_include_toggle(row= None):
+	val= hex_ciph_include_var[row].get()
+	for x in range(len(hex_ciph_include_var)):
+		hex_ciph_include_var[x].set(val)
+
+
+# set all includes to match calling entry
+def lock_key_toggle(row= None):
+	val= lock_key_var[row].get()
+	for x in range(len(lock_key_var)):
+		lock_key_var[x].set(val)
+
 # key frame
 hex_key_label=Label(frame_key, text= " Hex         ")
 hex_key_label.grid(padx= 0, pady= 1, row= 0, column= 0)
@@ -371,7 +443,10 @@ lock_key= []
 lock_key_var= []
 for x in range(len(Key)):
 	lock_key_var.append(Tkinter.IntVar())
+	def lock_key_toggle_handler(event, x=x):
+		return lock_key_toggle(x)
 	lock_key.append(Checkbutton(frame_key, variable= lock_key_var[x], command=update_all))
+	lock_key[x].bind('<Shift-ButtonRelease>', lock_key_toggle_handler)
 	lock_key[x].grid(padx= 0, pady= 0, row= 2, column= x + 1)
 	lock_key[x].deselect()
 
@@ -385,7 +460,10 @@ for x in range(len(CipherText)):
 	hex_ciph_label[x].grid(padx= 2, pady= 1, row= x, column= 0)
 	hex_ciph.append([Entry(frame_ciph, width= 2)])
 	hex_ciph_include_var.append(Tkinter.IntVar())
+	def ciph_include_toggle_handler(event, x=x):
+		return ciph_include_toggle(x)
 	hex_ciph_include.append(Checkbutton(frame_ciph, var= hex_ciph_include_var[x]))
+	hex_ciph_include[x].bind('<Shift-ButtonRelease>', ciph_include_toggle_handler)
 	hex_ciph_include[x].select()
 	hex_ciph_include[x].grid(padx= 0, pady= 0, row= x, column= 1)
 	for y in range(len(CipherText[x])):
@@ -404,6 +482,7 @@ for x in range(len(CipherText)):
 	text_pt_label[x].grid(padx= 2, pady= 1, row= x, column= 0)
 	text_pt.append([Entry(frame_pt, width= 2)])
 	text_pt_include.append(Checkbutton(frame_pt, var= hex_ciph_include_var[x]))
+	text_pt_include[x].bind('<Shift-ButtonRelease>', ciph_include_toggle)
 	text_pt_include[x].grid(padx= 0, pady= 0, row= x, column= 1)
 	for y in range(len(CipherText[x])):
 		if y:
