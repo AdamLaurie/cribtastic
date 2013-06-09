@@ -24,23 +24,20 @@ from Tkinter import *
 import Tkinter
 import getopt
 
-# colours
-# light grey = #d9d9d9
-
 class AutoScrollbar(Scrollbar):
-    # a scrollbar that hides itself if it's not needed.  only
-    # works if you use the grid geometry manager.
-    def set(self, lo, hi):
-        if float(lo) <= 0.0 and float(hi) >= 1.0:
-            # grid_remove is currently missing from Tkinter!
-            self.tk.call("grid", "remove", self)
-        else:
-            self.grid()
-        Scrollbar.set(self, lo, hi)
-    def pack(self, **kw):
-        raise TclError, "cannot use pack with this widget"
-    def place(self, **kw):
-        raise TclError, "cannot use place with this widget"
+	# a scrollbar that hides itself if it's not needed.  only
+	# works if you use the grid geometry manager.
+	def set(self, lo, hi):
+		if float(lo) <= 0.0 and float(hi) >= 1.0:
+			# grid_remove is currently missing from Tkinter!
+			self.tk.call("grid", "remove", self)
+		else:
+			self.grid()
+		Scrollbar.set(self, lo, hi)
+	def pack(self, **kw):
+		raise TclError, "cannot use pack with this widget"
+	def place(self, **kw):
+		raise TclError, "cannot use place with this widget"
 
 def readable(data):
 	if not data:
@@ -70,7 +67,6 @@ def reset_key(args= None):
 	for x in range(len(Key)):
 		if not lock_key_var[x].get():
 			Key[x]= OriginalKey[x]
-			update_key(x)
 	update_all()
 
 def update_key(x):
@@ -149,15 +145,33 @@ def update_all():
 
 # attacks
 
+def key_increment(args=None):
+	for x in range(len(Key)):
+		if not lock_key_var[x].get():
+			if not Key[x]:
+				Key[x]= '\x01'
+			else:
+				Key[x]= chr(ord(Key[x]) + 1 & 0xff)
+	update_all()
+		
+def key_decrement(args=None):
+	for x in range(len(Key)):
+		if not lock_key_var[x].get():
+			if not Key[x] or Key[x] == '\x00':
+				Key[x]= '\xff'
+			else:
+				Key[x]= chr(ord(Key[x]) - 1)
+	update_all()
+
 def attack_otp(args=None):
 	global Key
 
 	reset_key()
-	ciphers= copy.copy(CipherText)
-	# take out ciphers we've de-selected
-	for x in range(len(ciphers)):
-		if not hex_ciph_include_var[x].get():
-			ciphers.remove(ciphers[x])
+	ciphers= []
+	# use only ciphers we've selected
+	for x in range(len(CipherText)):
+		if hex_ciph_include_var[x].get():
+			ciphers.append(CipherText[x])
 	Key= otp_crack(ciphers)
 	update_all()
 
@@ -235,6 +249,7 @@ except getopt.GetoptError as err:
 	print str(err) # will print something like "option -a not recognized"
 	usage()
 	sys.exit(True)
+
 for o, a in opts:
 	if o in ("-a", "--ascii") or o in ("-b", "--binary") or o in ("-H", "--Hexfile"):
 		infile= open(a, 'rb')
@@ -250,9 +265,16 @@ for o, a in opts:
 if infile:
 	while 42:
 		if filetype == 'a':
-			data= infile.read().decode('base64')
-			for x in range(len(data) / maxlen):
-				CipherText.append(data[x * maxlen:(x + 1) * maxlen])
+			if maxlen:
+				data= infile.read().decode('base64')
+				for x in range(len(data) / maxlen):
+					CipherText.append(data[x * maxlen:(x + 1) * maxlen])
+			else:
+				while 42:
+					data= infile.readline().strip()
+					if data == '':
+						break
+					CipherText.append(data.decode('base64'))
 			break
 		if filetype == 'b':
 			data= infile.read()
@@ -272,7 +294,7 @@ if infile:
 					CipherText.append(data.decode('hex'))
 			break
 
-if not args:
+if not args and not CipherText:
 	usage()
 
 for x in args[1:]:
@@ -334,6 +356,11 @@ button_command_print.grid(padx= 2, pady= 2, row= 0, column= 1, sticky= W)
 button_command_otp= Button(frame_commands, text='OTP', command=attack_otp)
 button_command_otp.grid(padx= 2, pady= 2, row= 0, column= 2, sticky= W)
 
+button_command_auto_up= Button(frame_commands, text='+1', command=key_increment)
+button_command_auto_up.grid(padx= 2, pady= 2, row= 0, column= 3, sticky= W)
+
+button_command_auto_down= Button(frame_commands, text='-1', command=key_decrement)
+button_command_auto_down.grid(padx= 2, pady= 2, row= 0, column= 4, sticky= W)
 
 # entry field updates
 
@@ -341,14 +368,12 @@ button_command_otp.grid(padx= 2, pady= 2, row= 0, column= 2, sticky= W)
 def update_from_hex_key(col= None):
 	Key[col]= chr(int(hex_key[col].get(),16))
 	lock_key[col].select()
-	update_key(col)
 	update_all()
 
 # update a key value from the ASCII field
 def update_from_text_key(col= None):
 	Key[col]= text_key[col].get()
 	lock_key[col].select()
-	update_key(col)
 	update_all()
 
 def update_from_hex_ciph(arg1= None, arg2= None):
@@ -360,7 +385,6 @@ def update_from_hex_ciph(arg1= None, arg2= None):
 def update_from_plaintext(row= None, col= None):
 	Key[col]= sxor(text_pt[row][col].get(), CipherText[row][col])
 	lock_key[col].select()
-	update_key(col)
 	update_all()
 
 # override backgound colour, or re-set to normal if no colour specified
